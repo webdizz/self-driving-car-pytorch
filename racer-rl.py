@@ -125,7 +125,8 @@ for i_episode in count(1):
         env.render()
         policy.rewards.append(reward[0])
 
-    finish_episode()
+    if(state[0] != None):
+        finish_episode()
 
     running_reward = running_reward * 0.99 + t * 0.01
     if i_episode % args.log_interval == 0:
