@@ -1,10 +1,8 @@
 import argparse
 import logging
-import cv2
 
 import gym
 import universe
-from universe.wrappers import BlockingReset
 
 import numpy as np
 from itertools import count
@@ -16,6 +14,7 @@ import torch.optim as optim
 import torch.autograd as autograd
 from torch.autograd import Variable
 
+from reframe import resize_frame
 
 parser = argparse.ArgumentParser(description='PyTorch REINFORCE example')
 parser.add_argument('--gamma', type=float, default=0.99, metavar='G',
@@ -69,30 +68,6 @@ policy = Policy()
 optimizer = optim.Adam(policy.parameters(), lr=1e-2)
 
 
-def resize_frame(frame):
-    # crop and resize by 4. If we resize directly we lose pixels that
-    # aren't close enough to the pixel boundary.
-    x1 = 36
-    y1 = 116
-    x2 = 640
-    y2 = 536
-    # cv2.imwrite('/tmp/universe-frame-original.jpg', processed_frame)
-    processed_frame = frame[y1:y2, x1:x2]
-    # reduce by 2 in 2 times
-    y = processed_frame.shape[0]
-    x = processed_frame.shape[1]
-    ratio = 100.0 / x
-    processed_frame = cv2.resize(processed_frame, (100, int(y * ratio)))
-    # cv2.imwrite('/tmp/universe-frame-cropped.jpg', processed_frame)
-    # after crop shape is 69x100
-    processed_frame = cv2.cvtColor(processed_frame, cv2.COLOR_RGB2GRAY)
-    # cv2.imwrite('/tmp/universe-frame-gray.jpg', processed_frame)
-    logger.debug("Current frame shape after preprocessing is {}".format(
-        processed_frame.shape))
-    processed_frame = np.reshape(processed_frame, [1, 69, 100])
-    return processed_frame
-
-
 def select_action(state):
     # define our turns or keyboard actions
     left = [('KeyEvent', 'ArrowUp', True), ('KeyEvent',
@@ -110,6 +85,7 @@ def select_action(state):
         actual_state = state[0]['vision']
         actual_state = resize_frame(actual_state)
         actual_state = torch.from_numpy(actual_state).float().unsqueeze(0)
+        # predict next action
         probs = policy(Variable(actual_state))
         action = probs.multinomial()
         policy.saved_actions.append(action)
@@ -146,16 +122,10 @@ for i_episode in count(1):
         state, reward, done, info = env.step(action)
         env.render()
         policy.rewards.append(reward[0])
-        if reward[0] > 0:
-            print("Got a reward {} for action {} while state is {}".format(
-                reward, action, info))
+
+    finish_episode()
 
     running_reward = running_reward * 0.99 + t * 0.01
-    finish_episode()
     if i_episode % args.log_interval == 0:
         print('Episode {}\tLast length: {:5d}\tAverage length: {:.2f}'.format(
             i_episode, t, running_reward))
-    if running_reward > reward_threshold:
-        print("Solved! Running reward is now {} and "
-              "the last episode runs to {} time steps!".format(running_reward, t))
-        break
