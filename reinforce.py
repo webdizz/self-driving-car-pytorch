@@ -23,8 +23,9 @@ parser.add_argument('--render', action='store_true',
                     help='render the environment')
 parser.add_argument('--log_interval', type=int, default=10, metavar='N',
                     help='interval between training status logs (default: 10)')
+parser.add_argument('--reward_threshold', type=int, default=100, metavar='RT',
+                    help='reward threshold to win a game (default: 100)')
 args = parser.parse_args()
-reward_threshold = 100
 
 LOGGING_FORMAT = '%(asctime)s - %(name)s - %(thread)d|%(process)d - %(levelname)s - %(message)s'
 logging.basicConfig(format=LOGGING_FORMAT)
@@ -89,6 +90,7 @@ def select_action(state):
         probs = policy(Variable(actual_state))
         action = probs.multinomial()
         policy.saved_actions.append(action)
+        # to drive action
         action_idx = action.data.numpy()[0][0]
         action = drive_actions[action_idx]
 
