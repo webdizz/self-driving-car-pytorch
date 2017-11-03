@@ -62,6 +62,7 @@ class Policy(nn.Module):
         x = x.view(-1, 32 * 5 * 7)
         x = F.relu(self.affine1(x))
         action_scores = self.affine2(x)
+        # rescaling them so that the elements of the n-dimensional output Tensor lie in the range (0,1) and sum to 1
         return F.softmax(action_scores)
 
 
@@ -88,6 +89,7 @@ def select_action(state):
         actual_state = torch.from_numpy(actual_state).float().unsqueeze(0)
         # predict next action
         probs = policy(Variable(actual_state))
+        # multinomial probability distribution located in the corresponding row of Tensor input
         action = probs.multinomial()
         policy.saved_actions.append(action)
         # to drive action
