@@ -1,4 +1,5 @@
 import argparse
+import os.path as path
 
 import gym
 import universe
@@ -25,13 +26,14 @@ parser.add_argument('--render', action='store_true',
                     help='render the environment')
 parser.add_argument('--log-interval', type=int, default=10, metavar='N',
                     help='interval between training status logs (default: 10)')
+parser.add_argument('--model_file', type=str, default='racer-ac.pth.tar', metavar='F',
+                    help='file to save/restore model (default: racer-ac.pth.tar)')
 args = parser.parse_args()
 
 
 env = gym.make('flashgames.CoasterRacer-v0')
 
 torch.manual_seed(args.seed)
-
 
 SavedAction = namedtuple('SavedAction', ['action', 'value'])
 
@@ -73,6 +75,13 @@ class Policy(nn.Module):
 
 model = Policy()
 optimizer = optim.Adam(model.parameters(), lr=3e-2)
+
+if path.exists(args.model_file):
+    persisted_model_state = torch.load(args.model_file)
+    model.load_state_dict(persisted_model_state['model'])
+    model.eval()
+    optimizer.load_state_dict(persisted_model_state['optimizer'])
+    optimizer.eval()
 
 
 def select_action(state):
@@ -126,6 +135,9 @@ def finish_episode():
     optimizer.step()
     del model.rewards[:]
     del model.saved_actions[:]
+    # save model
+    torch.save({'model': model.state_dict(),
+                'optimizer': optimizer.state_dict()}, model_file)
 
 
 running_reward = 10
