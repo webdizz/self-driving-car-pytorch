@@ -46,9 +46,10 @@ class Policy(nn.Module):
         self.conv4 = nn.Conv2d(32, 32, kernel_size=3, stride=2, padding=1)
 
         self.affine1 = nn.Linear(32 * 5 * 7, 128)
+        self.affine2 = nn.Linear(128, 64)
 
-        self.action_head = nn.Linear(128, 3)
-        self.value_head = nn.Linear(128, 1)
+        self.action_head = nn.Linear(64, 3)
+        self.value_head = nn.Linear(64, 1)
 
         self.saved_actions = []
         self.rewards = []
@@ -62,9 +63,11 @@ class Policy(nn.Module):
         # flattening the last convolutional layer into this 1D vector x
         x = x.view(-1, 32 * 5 * 7)
         x = F.relu(self.affine1(x))
+        x = F.relu(self.affine2(x))
 
         action_scores = self.action_head(x)
         state_values = self.value_head(x)
+        # rescaling them so that the elements of the n-dimensional output Tensor lie in the range (0,1) and sum to 1
         return F.softmax(action_scores), state_values
 
 
@@ -91,6 +94,7 @@ def select_action(state):
         actual_state = torch.from_numpy(actual_state).float().unsqueeze(0)
         # predict next action
         probs, state_value = model(Variable(actual_state))
+        # multinomial probability distribution located in the corresponding row of Tensor input
         action = probs.multinomial()
         model.saved_actions.append(SavedAction(action, state_value))
         # to drive action
