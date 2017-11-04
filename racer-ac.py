@@ -46,24 +46,25 @@ class Policy(nn.Module):
         self.conv2 = nn.Conv2d(32, 32, kernel_size=3, stride=2, padding=1)
         self.conv3 = nn.Conv2d(32, 32, kernel_size=3, stride=2, padding=1)
         self.conv4 = nn.Conv2d(32, 32, kernel_size=3, stride=2, padding=1)
+        self.conv_drop = nn.Dropout2d()
 
-        self.affine1 = nn.Linear(32 * 5 * 7, 128)
-        self.affine2 = nn.Linear(128, 64)
+        self.affine1 = nn.Linear(192, 256)
+        self.affine2 = nn.Linear(256, 128)
 
-        self.action_head = nn.Linear(64, 3)
-        self.value_head = nn.Linear(64, 1)
+        self.action_head = nn.Linear(128, 3)
+        self.value_head = nn.Linear(128, 1)
 
         self.saved_actions = []
         self.rewards = []
 
     def forward(self, x):
-        x = F.elu(self.conv1(x))
-        x = F.elu(self.conv2(x))
-        x = F.elu(self.conv3(x))
-        x = F.elu(self.conv4(x))
+        x = F.relu(self.conv1(x))
+        x = F.relu(self.conv2(x))
+        x = F.relu(self.conv3(x))
+        x = F.relu(F.max_pool2d(self.conv_drop(self.conv4(x)), 2))
 
         # flattening the last convolutional layer into this 1D vector x
-        x = x.view(-1, 32 * 5 * 7)
+        x = x.view(-1, 192)
         x = F.relu(self.affine1(x))
         x = F.relu(self.affine2(x))
 
@@ -81,7 +82,6 @@ if path.exists(args.model_file):
     model.load_state_dict(persisted_model_state['model'])
     model.eval()
     optimizer.load_state_dict(persisted_model_state['optimizer'])
-    optimizer.eval()
 
 
 def select_action(state):
@@ -137,13 +137,13 @@ def finish_episode():
     del model.saved_actions[:]
     # save model
     torch.save({'model': model.state_dict(),
-                'optimizer': optimizer.state_dict()}, model_file)
+                'optimizer': optimizer.state_dict()}, args.model_file)
 
 
 running_reward = 10
 for i_episode in count(1):
     state = env.reset()
-    for t in range(10000):  # Don't infinite loop while learning
+    for t in range(7000):  # Don't infinite loop while learning
         action = select_action(state)
         state, reward, done, info = env.step(action)
         env.render()
