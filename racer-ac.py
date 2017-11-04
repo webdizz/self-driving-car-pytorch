@@ -30,7 +30,8 @@ parser.add_argument('--model_file', type=str, default='racer-ac.pth.tar', metava
                     help='file to save/restore model (default: racer-ac.pth.tar)')
 args = parser.parse_args()
 
-is_train = False
+is_train = True
+is_load_model = True
 
 env = gym.make('flashgames.CoasterRacer-v0')
 
@@ -75,13 +76,13 @@ class Policy(nn.Module):
         action_scores = self.action_head(x)
         state_values = self.value_head(x)
         # rescaling them so that the elements of the n-dimensional output Tensor lie in the range (0,1) and sum to 1
-        return F.softmax(action_scores), state_values
+        return F.softmax(action_scores * 0.7), state_values
 
 
 model = Policy()
 optimizer = optim.Adam(model.parameters(), lr=3e-2)
 
-if path.exists(args.model_file):
+if (path.exists(args.model_file) and is_load_model):
     persisted_model_state = torch.load(args.model_file)
     model.load_state_dict(persisted_model_state['model'])
     model.eval()
@@ -109,12 +110,14 @@ def select_action(state):
         probs, state_value = model(Variable(actual_state))
         # multinomial probability distribution located in the corresponding row of Tensor input
         action = probs.multinomial()
-        model.saved_actions.append(SavedAction(action, state_value))
+        if(is_train):
+            model.saved_actions.append(SavedAction(action, state_value))
         # to drive action
         action_idx = action.data.numpy()[0][0]
         action = drive_actions[action_idx]
 
     return [action]
+
 
 def learn():
     R = 0
@@ -129,15 +132,17 @@ def learn():
         (rewards.std() + np.finfo(np.float32).eps)
     for (action, value), r in zip(saved_actions, rewards):
         reward = r - value.data[0, 0]
-        action.reinforce(reward)
+        reinforce_reward = torch.Tensor([[reward]])
+        action.reinforce(reinforce_reward)
         value_loss += F.smooth_l1_loss(value, Variable(torch.Tensor([r])))
     optimizer.zero_grad()
     final_nodes = [value_loss] + list(map(lambda p: p.action, saved_actions))
     gradients = [torch.ones(1)] + [None] * len(saved_actions)
-    autograd.backward(final_nodes, gradients)
+    autograd.backward(final_nodes, gradients, retain_graph=False)
     optimizer.step()
     del model.rewards[:]
     del model.saved_actions[:]
+
 
 def finish_episode():
     learn()
@@ -147,19 +152,23 @@ def finish_episode():
 
 
 running_reward = 10
+model_store_step = 20000
 for i_episode in count(1):
     state = env.reset()
-    for t in range(15000):  # Don't infinite loop while learning
+    for t in range(20000):  # Don't infinite loop while learning
         action = select_action(state)
         state, reward, done, info = env.step(action)
         env.render()
-        model.rewards.append(reward[0])
 
-    if(state[0] != None and is_train):
-        finish_episode()
+        if(state[0] != None and is_train):
+            model.rewards.append(reward[0])
 
-    if t >= 15000:
-        print("Episode is about to finish {}".format(info))
+        if(state[0] != None and is_train and len(model.rewards) >= model_store_step):
+            finish_episode()
+
+    # if(state[0] != None and is_train):
+        # finish_episode()
+
     running_reward = running_reward * 0.99 + t * 0.01
     if i_episode % args.log_interval == 0:
         print('Episode {}\tLast length: {:5d}\tAverage length: {:.2f}'.format(
