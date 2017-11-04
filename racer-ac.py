@@ -16,6 +16,8 @@ import torch.autograd as autograd
 from torch.autograd import Variable
 
 from reframe import resize_frame
+from monitor import dbclient
+from monitor import track
 
 parser = argparse.ArgumentParser(description='PyTorch actor-critic example')
 parser.add_argument('--gamma', type=float, default=0.99, metavar='G',
@@ -162,12 +164,15 @@ for i_episode in count(1):
 
         if(state[0] != None and is_train):
             model.rewards.append(reward[0])
+            # track values for later stats
+            track(dbclient, 'reward', reward[0])
+            if('rewarder.profile' in info['n'][0]):
+                if('reward_parser.score.last_score' in info['n'][0]['rewarder.profile']['gauges']):
+                    score = info['n'][0]['rewarder.profile']['gauges']['reward_parser.score.last_score']['value']
+                    track(dbclient, 'score', score)
 
         if(state[0] != None and is_train and len(model.rewards) >= model_store_step):
             finish_episode()
-
-    # if(state[0] != None and is_train):
-        # finish_episode()
 
     running_reward = running_reward * 0.99 + t * 0.01
     if i_episode % args.log_interval == 0:
