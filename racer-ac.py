@@ -30,6 +30,7 @@ parser.add_argument('--model_file', type=str, default='racer-ac.pth.tar', metava
                     help='file to save/restore model (default: racer-ac.pth.tar)')
 args = parser.parse_args()
 
+is_train = False
 
 env = gym.make('flashgames.CoasterRacer-v0')
 
@@ -53,6 +54,9 @@ class Policy(nn.Module):
 
         self.action_head = nn.Linear(128, 3)
         self.value_head = nn.Linear(128, 1)
+
+        if is_train:
+            self.train()
 
         self.saved_actions = []
         self.rewards = []
@@ -112,8 +116,7 @@ def select_action(state):
 
     return [action]
 
-
-def finish_episode():
+def learn():
     R = 0
     saved_actions = model.saved_actions
     value_loss = 0
@@ -135,6 +138,9 @@ def finish_episode():
     optimizer.step()
     del model.rewards[:]
     del model.saved_actions[:]
+
+def finish_episode():
+    learn()
     # save model
     torch.save({'model': model.state_dict(),
                 'optimizer': optimizer.state_dict()}, args.model_file)
@@ -143,15 +149,17 @@ def finish_episode():
 running_reward = 10
 for i_episode in count(1):
     state = env.reset()
-    for t in range(7000):  # Don't infinite loop while learning
+    for t in range(15000):  # Don't infinite loop while learning
         action = select_action(state)
         state, reward, done, info = env.step(action)
         env.render()
         model.rewards.append(reward[0])
 
-    if(state[0] != None):
+    if(state[0] != None and is_train):
         finish_episode()
 
+    if t >= 15000:
+        print("Episode is about to finish {}".format(info))
     running_reward = running_reward * 0.99 + t * 0.01
     if i_episode % args.log_interval == 0:
         print('Episode {}\tLast length: {:5d}\tAverage length: {:.2f}'.format(
