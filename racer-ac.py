@@ -156,7 +156,6 @@ def finish_episode():
                 'optimizer': optimizer.state_dict()}, args.model_file)
 
 
-running_reward = 10
 model_store_step = 1000
 for i_episode in count(1):
     state = env.reset()
@@ -178,8 +177,3 @@ for i_episode in count(1):
             # save model each model_store_step
             if(t % model_store_step == 0):
                 finish_episode()
-
-    running_reward = running_reward * 0.99 + t * 0.01
-    if i_episode % args.log_interval == 0:
-        print('Episode {}\tLast length: {:5d}\tAverage length: {:.2f}'.format(
-            i_episode, t, running_reward))
