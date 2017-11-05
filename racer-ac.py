@@ -36,6 +36,9 @@ is_train = True
 is_load_model = True
 
 env = gym.make('flashgames.CoasterRacer-v0')
+env.configure(fps=5.0, vnc_kwargs={
+    'encoding': 'tight', 'compress_level': 0,
+    'fine_quality_level': 50, 'subsample_level': 3})
 
 torch.manual_seed(args.seed)
 
@@ -154,7 +157,7 @@ def finish_episode():
 
 
 running_reward = 10
-model_store_step = 20000
+model_store_step = 1000
 for i_episode in count(1):
     state = env.reset()
     for t in range(20000):  # Don't infinite loop while learning
@@ -163,16 +166,18 @@ for i_episode in count(1):
         env.render()
 
         if(state[0] != None and is_train):
-            model.rewards.append(reward[0])
             # track values for later stats
-            track(dbclient, 'reward', reward[0])
+            model.rewards.append(reward[0])
             if('rewarder.profile' in info['n'][0]):
                 if('reward_parser.score.last_score' in info['n'][0]['rewarder.profile']['gauges']):
+                    track(dbclient, 'reward', info['n'][0]['rewarder.profile']
+                          ['counters']['agent_conn.reward']['total'])
                     score = info['n'][0]['rewarder.profile']['gauges']['reward_parser.score.last_score']['value']
                     track(dbclient, 'score', score)
 
-        if(state[0] != None and is_train and len(model.rewards) >= model_store_step):
-            finish_episode()
+            # save model each model_store_step
+            if(t % model_store_step == 0):
+                finish_episode()
 
     running_reward = running_reward * 0.99 + t * 0.01
     if i_episode % args.log_interval == 0:
