@@ -20,6 +20,12 @@ Then simply execute to run bot:
     source activate sd-car-pytorch
     python racer-ac.py
 
+During training there are `score` and `reward` metrics will be pushed to InfluxDB running in Docker container along with Grafana to visualize learning process. 
+There is also a dashboard used for this `grafana-dashboard.json`.
+To run monitoring execute bellow command from project folder:
+
+    docker-compose up
+
 Credits
 ------------------------    
 
