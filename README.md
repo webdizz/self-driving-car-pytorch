@@ -26,6 +26,11 @@ To run monitoring execute bellow command from project folder:
 
     docker-compose up
 
+Model
+------------------------    
+
+There is also a trained model persisted in `racer-ac.pth.tar` that can be loaded automatically for testing or continue to learn.
+
 Credits
 ------------------------    
 
