@@ -1,7 +1,7 @@
 self-driven-car-pytorch
 ========================
 
-This repository is a demo of implementation of self-driving car using [Open.AI](https://openai.com/) [Universe](https://github.com/openai/universe) and [PyTorch](http://pytorch.org/) to support [Can I do AI?..](https://www.slideshare.net/IzzetMustafaiev/can-i-do-ai) presentation.
+This repository is a demo of implementation of self-driving car using [Open.AI](https://openai.com/) [Universe](https://github.com/openai/universe) and [PyTorch](http://pytorch.org/) to support [Can I do AI?..](https://www.slideshare.net/IzzetMustafaiev/can-i-do-ai) presentation at [JavaDay 2017](http://javaday.org.ua/izzet-mustafaiev-can-i-do-ml/).
 
 Prerequisite
 ------------------------
