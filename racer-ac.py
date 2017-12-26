@@ -33,7 +33,7 @@ parser.add_argument('--model_file', type=str, default='racer-ac.pth.tar', metava
 args = parser.parse_args()
 
 is_train = True
-is_load_model = True
+is_load_model = False
 
 env = gym.make('flashgames.CoasterRacer-v0')
 env.configure(fps=5.0, vnc_kwargs={
@@ -55,8 +55,9 @@ class Policy(nn.Module):
         self.conv4 = nn.Conv2d(32, 32, kernel_size=3, stride=2, padding=1)
         self.conv_drop = nn.Dropout2d()
 
-        self.affine1 = nn.Linear(192, 256)
-        self.affine2 = nn.Linear(256, 128)
+        self.affine1 = nn.Linear(1120, 560)
+        self.affine2 = nn.Linear(560, 256)
+        self.affine3 = nn.Linear(256, 128)
 
         self.action_head = nn.Linear(128, 3)
         self.value_head = nn.Linear(128, 1)
@@ -71,12 +72,13 @@ class Policy(nn.Module):
         x = F.relu(self.conv1(x))
         x = F.relu(self.conv2(x))
         x = F.relu(self.conv3(x))
-        x = F.relu(F.max_pool2d(self.conv_drop(self.conv4(x)), 2))
+        x = F.relu(self.conv_drop(self.conv4(x)))
 
         # flattening the last convolutional layer into this 1D vector x
-        x = x.view(-1, 192)
+        x = x.view(-1, 1120)
         x = F.relu(self.affine1(x))
         x = F.relu(self.affine2(x))
+        x = F.relu(self.affine3(x))
 
         action_scores = self.action_head(x)
         state_values = self.value_head(x)
