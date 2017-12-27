@@ -33,7 +33,7 @@ parser.add_argument('--model_file', type=str, default='racer-ac.pth.tar', metava
 args = parser.parse_args()
 
 is_train = True
-is_load_model = False
+is_load_model = True
 
 env = gym.make('flashgames.CoasterRacer-v0')
 env.configure(fps=5.0, vnc_kwargs={
@@ -72,7 +72,10 @@ class Policy(nn.Module):
         x = F.relu(self.conv1(x))
         x = F.relu(self.conv2(x))
         x = F.relu(self.conv3(x))
-        x = F.relu(self.conv_drop(self.conv4(x)))
+        if is_train:
+            x = F.relu(self.conv_drop(self.conv4(x)))
+        else:
+            x = F.relu(self.conv4(x))
 
         # flattening the last convolutional layer into this 1D vector x
         x = x.view(-1, 1120)
