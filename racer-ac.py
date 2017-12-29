@@ -34,6 +34,7 @@ args = parser.parse_args()
 
 is_train = True
 is_load_model = True
+is_monitor = False
 
 env = gym.make('flashgames.CoasterRacer-v0')
 env.configure(fps=5.0, vnc_kwargs={
@@ -171,7 +172,7 @@ for i_episode in count(1):
         if(state[0] != None and is_train):
             # track values for later stats
             model.rewards.append(reward[0])
-            if('rewarder.profile' in info['n'][0]):
+            if(is_monitor and 'rewarder.profile' in info['n'][0]):
                 if('reward_parser.score.last_score' in info['n'][0]['rewarder.profile']['gauges']):
                     track(dbclient, 'reward', info['n'][0]['rewarder.profile']
                           ['counters']['agent_conn.reward']['total'])
