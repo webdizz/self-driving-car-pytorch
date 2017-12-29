@@ -49,15 +49,14 @@ class Policy(nn.Module):
     def __init__(self):
         super(Policy, self).__init__()
 
-        self.conv1 = nn.Conv2d(1, 32, kernel_size=3, stride=2, padding=1)
-        self.conv2 = nn.Conv2d(32, 32, kernel_size=3, stride=2, padding=1)
-        self.conv3 = nn.Conv2d(32, 32, kernel_size=3, stride=2, padding=1)
-        self.conv4 = nn.Conv2d(32, 32, kernel_size=3, stride=2, padding=1)
+        self.conv1 = nn.Conv2d(1, 32, kernel_size=8, stride=4)
+        self.conv2 = nn.Conv2d(32, 64, kernel_size=4, stride=2)
+        self.conv3 = nn.Conv2d(64, 32, kernel_size=4, stride=2)
         self.conv_drop = nn.Dropout2d()
 
-        self.affine1 = nn.Linear(1120, 560)
-        self.affine2 = nn.Linear(560, 256)
-        self.affine3 = nn.Linear(256, 128)
+        self.affine1 = nn.Linear(256, 256)
+        self.affine2 = nn.Linear(256, 128)
+        self.affine3 = nn.Linear(128, 128)
 
         self.action_head = nn.Linear(128, 3)
         self.value_head = nn.Linear(128, 1)
@@ -71,14 +70,13 @@ class Policy(nn.Module):
     def forward(self, x):
         x = F.relu(self.conv1(x))
         x = F.relu(self.conv2(x))
-        x = F.relu(self.conv3(x))
         if is_train:
-            x = F.relu(self.conv_drop(self.conv4(x)))
+            x = F.relu(self.conv_drop(self.conv3(x)))
         else:
-            x = F.relu(self.conv4(x))
+            x = F.relu(self.conv3(x))
 
         # flattening the last convolutional layer into this 1D vector x
-        x = x.view(-1, 1120)
+        x = x.view(-1, 256)
         x = F.relu(self.affine1(x))
         x = F.relu(self.affine2(x))
         x = F.relu(self.affine3(x))
@@ -134,21 +132,22 @@ def learn():
     saved_actions = model.saved_actions
     value_loss = 0
     rewards = []
+    value_losses = []
+    policy_losses = []
+
     for r in model.rewards[::-1]:
         R = r + args.gamma * R
         rewards.insert(0, R)
     rewards = torch.Tensor(rewards)
-    rewards = (rewards - rewards.mean()) / \
-        (rewards.std() + np.finfo(np.float32).eps)
+    rewards = (rewards - rewards.mean()) / (rewards.std() + np.finfo(np.float32).eps)
     for (action, value), r in zip(saved_actions, rewards):
         reward = r - value.data[0, 0]
-        reinforce_reward = torch.Tensor([[reward]])
-        action.reinforce(reinforce_reward)
-        value_loss += F.smooth_l1_loss(value, Variable(torch.Tensor([r])))
+        value_losses.append(F.smooth_l1_loss(value, Variable(torch.Tensor([r]))))
+        policy_losses.append(torch.Tensor([-1 *  reward * (action.data[0, 0]+0.001)]))
+
     optimizer.zero_grad()
-    final_nodes = [value_loss] + list(map(lambda p: p.action, saved_actions))
-    gradients = [torch.ones(1)] + [None] * len(saved_actions)
-    autograd.backward(final_nodes, gradients, retain_graph=False)
+    loss = torch.cat(policy_losses).sum() + torch.cat(value_losses).sum()
+    loss.backward()
     optimizer.step()
     del model.rewards[:]
     del model.saved_actions[:]
@@ -161,7 +160,7 @@ def finish_episode():
                 'optimizer': optimizer.state_dict()}, args.model_file)
 
 
-model_store_step = 1000
+model_store_step = 500
 for i_episode in count(1):
     state = env.reset()
     for t in range(20000):  # Don't infinite loop while learning
