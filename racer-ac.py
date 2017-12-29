@@ -140,11 +140,14 @@ def learn():
         R = r + args.gamma * R
         rewards.insert(0, R)
     rewards = torch.Tensor(rewards)
-    rewards = (rewards - rewards.mean()) / (rewards.std() + np.finfo(np.float32).eps)
+    rewards = (rewards - rewards.mean()) / \
+        (rewards.std() + np.finfo(np.float32).eps)
     for (action, value), r in zip(saved_actions, rewards):
         reward = r - value.data[0, 0]
-        value_losses.append(F.smooth_l1_loss(value, Variable(torch.Tensor([r]))))
-        policy_losses.append(torch.Tensor([-1 *  reward * (action.data[0, 0]+0.001)]))
+        value_losses.append(F.smooth_l1_loss(
+            value, Variable(torch.Tensor([r]))))
+        policy_losses.append(torch.Tensor(
+            [-1 * reward * (action.data[0, 0] + 0.001)]))
 
     optimizer.zero_grad()
     loss = torch.cat(policy_losses).sum() + torch.cat(value_losses).sum()
