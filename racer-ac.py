@@ -58,6 +58,7 @@ class Policy(nn.Module):
         self.affine1 = nn.Linear(256, 256)
         self.affine2 = nn.Linear(256, 128)
         self.affine3 = nn.Linear(128, 128)
+        self.lstm = nn.LSTM(128, 128)
 
         self.action_head = nn.Linear(128, 3)
         self.value_head = nn.Linear(128, 1)
@@ -69,6 +70,7 @@ class Policy(nn.Module):
         self.rewards = []
 
     def forward(self, x):
+        x, (hx, cx) = x
         x = F.relu(self.conv1(x))
         x = F.relu(self.conv2(x))
         if is_train:
@@ -82,10 +84,12 @@ class Policy(nn.Module):
         x = F.relu(self.affine2(x))
         x = F.relu(self.affine3(x))
 
+        hx, cx = self.lstm(x, (hx, cx))
+        x = hx[0]
         action_scores = self.action_head(x)
         state_values = self.value_head(x)
         # rescaling them so that the elements of the n-dimensional output Tensor lie in the range (0,1) and sum to 1
-        return F.softmax(action_scores * 0.7), state_values
+        return F.softmax(action_scores * 0.7), state_values, (hx, cx)
 
 
 model = Policy()
@@ -99,6 +103,7 @@ if (path.exists(args.model_file) and is_load_model):
 
 
 def select_action(state):
+    state, (hx, cx) = state
     # define our turns or keyboard actions
     left = [('KeyEvent', 'ArrowUp', True), ('KeyEvent',
                                             'ArrowLeft', True), ('KeyEvent', 'ArrowRight', False)]
@@ -116,7 +121,7 @@ def select_action(state):
         actual_state = resize_frame(actual_state)
         actual_state = torch.from_numpy(actual_state).float().unsqueeze(0)
         # predict next action
-        probs, state_value = model(Variable(actual_state))
+        probs, state_value, _ = model((Variable(actual_state), (hx, cx)))
         # multinomial probability distribution located in the corresponding row of Tensor input
         action = probs.multinomial()
         if(is_train):
@@ -167,8 +172,10 @@ def finish_episode():
 model_store_step = 500
 for i_episode in count(1):
     state = env.reset()
+    cx = Variable(torch.zeros(1, 1, 128)) # the cell states of the LSTM are reinitialized to zero
+    hx = Variable(torch.zeros(1, 1, 128)) # the hidden states of the LSTM are reinitialized to zero
     for t in range(20000):  # Don't infinite loop while learning
-        action = select_action(state)
+        action = select_action((state, (hx, cx)))
         state, reward, done, info = env.step(action)
         env.render()
 
