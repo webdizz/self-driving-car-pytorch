@@ -14,6 +14,7 @@ import torch.nn.functional as F
 import torch.optim as optim
 import torch.autograd as autograd
 from torch.autograd import Variable
+from torch import Tensor
 
 from reframe import resize_frame
 from monitor import dbclient
@@ -144,14 +145,14 @@ def learn():
     for r in model.rewards[::-1]:
         R = r + args.gamma * R
         rewards.insert(0, R)
-    rewards = torch.Tensor(rewards)
+    rewards = Tensor(rewards)
     rewards = (rewards - rewards.mean()) / \
         (rewards.std() + np.finfo(np.float32).eps)
     for (action, value), r in zip(saved_actions, rewards):
         reward = r - value.data[0, 0]
         value_losses.append(F.smooth_l1_loss(
-            value, Variable(torch.Tensor([r]))))
-        policy_losses.append(torch.Tensor(
+            value, Variable(Tensor([r]))))
+        policy_losses.append(Tensor(
             [-1 * reward * (action.data[0, 0] + 0.001)]))
 
     optimizer.zero_grad()
@@ -172,8 +173,10 @@ def finish_episode():
 model_store_step = 500
 for i_episode in count(1):
     state = env.reset()
-    cx = Variable(torch.zeros(1, 1, 128)) # the cell states of the LSTM are reinitialized to zero
-    hx = Variable(torch.zeros(1, 1, 128)) # the hidden states of the LSTM are reinitialized to zero
+    # the cell states of the LSTM are reinitialized to zero
+    cx = Variable(torch.zeros(1, 1, 128))
+    # the hidden states of the LSTM are reinitialized to zero
+    hx = Variable(torch.zeros(1, 1, 128))
     for t in range(20000):  # Don't infinite loop while learning
         action = select_action((state, (hx, cx)))
         state, reward, done, info = env.step(action)
