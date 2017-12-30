@@ -17,8 +17,7 @@ from torch.autograd import Variable
 from torch import Tensor
 
 from reframe import resize_frame
-from monitor import dbclient
-from monitor import track
+from tensorboardX import SummaryWriter
 
 parser = argparse.ArgumentParser(description='PyTorch actor-critic example')
 parser.add_argument('--gamma', type=float, default=0.99, metavar='G',
@@ -35,7 +34,10 @@ args = parser.parse_args()
 
 is_train = True
 is_load_model = True
-is_monitor = False
+is_monitor = True
+
+run_name = 'runs/lstm'
+writer = SummaryWriter(run_name)
 
 env = gym.make('flashgames.CoasterRacer-v0')
 env.configure(fps=5.0, vnc_kwargs={
@@ -171,13 +173,15 @@ def finish_episode():
 
 
 model_store_step = 500
-for i_episode in count(1):
+global_step = 0
+for i_episode in range(5):
     state = env.reset()
     # the cell states of the LSTM are reinitialized to zero
     cx = Variable(torch.zeros(1, 1, 128))
     # the hidden states of the LSTM are reinitialized to zero
     hx = Variable(torch.zeros(1, 1, 128))
     for t in range(20000):  # Don't infinite loop while learning
+        global_step += 1
         action = select_action((state, (hx, cx)))
         state, reward, done, info = env.step(action)
         env.render()
@@ -186,12 +190,16 @@ for i_episode in count(1):
             # track values for later stats
             model.rewards.append(reward[0])
             if(is_monitor and 'rewarder.profile' in info['n'][0]):
+                writer.add_scalar('data/reward', reward[0], global_step)
                 if('reward_parser.score.last_score' in info['n'][0]['rewarder.profile']['gauges']):
-                    track(dbclient, 'reward', info['n'][0]['rewarder.profile']
-                          ['counters']['agent_conn.reward']['total'])
                     score = info['n'][0]['rewarder.profile']['gauges']['reward_parser.score.last_score']['value']
-                    track(dbclient, 'score', score)
+                    writer.add_scalar('data/score', score, global_step)
 
             # save model each model_store_step
             if(t % model_store_step == 0):
+                if is_monitor:
+                    writer.add_histogram(
+                        'data/rewards', np.array(model.rewards), global_step)
+                    print('\n\n\n==\n\nIs about to finish step ', t,
+                          ' of episode ', i_episode, '\n\n==\n\n\n')
                 finish_episode()
