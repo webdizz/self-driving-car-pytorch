@@ -40,3 +40,6 @@ TODO
 ------------------------    
 * Adopt A3C model, however it looks like ACKTR is more promising algorithm according to [https://arxiv.org/abs/1708.05144](https://arxiv.org/abs/1708.05144)
 * Adopt experience replay 
+* Add architecture diagram
+* Add runs comparison
+* Try to train on GPU on [FloydHub](https://www.floydhub.com/) or other GPU cloud.
