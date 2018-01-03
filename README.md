@@ -20,11 +20,9 @@ Then simply execute to run bot:
     source activate sd-car-pytorch
     python racer-ac.py
 
-During training there are `score` and `reward` metrics will be pushed to InfluxDB running in Docker container along with Grafana to visualize learning process. 
-There is also a dashboard used for this `grafana-dashboard.json`.
-To run monitoring execute bellow command from project folder:
+During training there are `score` and `reward` metrics will be pushed using [tensorboardX](https://github.com/lanpa/tensorboard-pytorch) into *runs* folder. During training or later statistics can be analysed using [Tensorboard](https://github.com/tensorflow/tensorboard) at http://localhost:6006.
 
-    docker-compose up
+    tensorboard --logdir runs 
 
 Model
 ------------------------    
@@ -40,6 +38,5 @@ Credits
 
 TODO
 ------------------------    
-* Adopt LSTM to remember previous actions and env states
-* Investigate more MaxPooling and Dropout layers
-* Adopt A3C model
+* Adopt A3C model, however it looks like ACKTR is more promising algorithm according to [https://arxiv.org/abs/1708.05144](https://arxiv.org/abs/1708.05144)
+* Adopt experience replay 
