@@ -5,7 +5,6 @@ import gym
 import universe
 
 import numpy as np
-from itertools import count
 from collections import namedtuple
 
 import torch
